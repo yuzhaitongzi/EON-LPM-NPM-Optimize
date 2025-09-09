@@ -112,7 +112,32 @@ def process_waiting_queue(aux_network, waiting_queue):
 ### 5. 碎片化感知
 增加碎片化的权重，结合Dijkstra算法，选择更优的路径，减少频谱碎片。
 ```
-
+def find_best_path(aux_network, source, target, bandwidth_need):
+    global total_fragmented_bandwidth
+    
+    def weight(u, v, d):
+        # 计算链路的剩余带宽
+        free_bandwidth = d['capacity'] - bandwidth_need
+        
+        # 碎片化惩罚计算
+        if free_bandwidth > 0:
+            fragmentation_penalty = alpha * (1 / (free_bandwidth + 1))
+            total_fragmented_bandwidth += fragmentation_penalty
+        else:
+            fragmentation_penalty = 0
+            
+        # 综合链路代价计算
+        if d['capacity'] >= bandwidth_need:
+            return (1 / d['capacity']) + fragmentation_penalty
+        else:
+            return float('inf')
+    
+    # 使用碎片感知的Dijkstra算法
+    try:
+        length, best_path = nx.single_source_dijkstra(aux_network, source, target, weight=weight)
+        return best_path if best_path and length != float('inf') else None
+    except (nx.NetworkXNoPath, KeyError):
+        return None
 ```
 ## 工作流程
 
