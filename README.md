@@ -37,16 +37,83 @@ def recover_resources_at_time(aux_network, von_mappings, end_time):
 ### 2. 双资源池策略
 将链路资源按照一定比例分为两路资源池，以应对不同情况下的业务需求，从而降低多数服务的阻塞次数。
 ```
+def try_with_backup(aux_network, von_mappings, von_number, vn_source, vn_target, data):
+    # 计算备用资源池容量（总容量的30%）
+    backup_capacity = 0.3 * sum(data['capacity'] for _, _, data in aux_network.edges(data=True))
+    
+    # 检查备用资源是否足够
+    if backup_capacity >= data['bandwidth']:
+        for u, v in aux_network.edges():
+            if aux_network[u][v]['capacity'] >= data['bandwidth']:
+                # 使用备用资源
+                aux_network[u][v]['capacity'] -= data['bandwidth']
+                von_mappings[von_number]['link_mappings'][(vn_source, vn_target)] = [(vn_source, vn_target)]
+                
+                # 记录资源使用
+                global total_capacity_used
+                total_capacity_used += data['bandwidth']
+                return True
+    return False
 ```
 ### 3. 动态编码格式
 根据不同的链路长度情况，采用不失真的编码格式，提升传输效率，减少链路开销。
-
+```
+def map_link_with_dynamic_coding(aux_network, path, bandwidth):
+    total_path_length = sum(aux_network[u][v]['length'] for u, v in zip(path[:-1], path[1:]))
+    
+    # 根据路径长度动态调整带宽需求
+    if total_path_length < 80:
+        adjusted_bandwidth = bandwidth / 6
+    elif 80 < total_path_length < 240:
+        adjusted_bandwidth = bandwidth / 5
+    elif 240 < total_path_length < 560:
+        adjusted_bandwidth = bandwidth / 4
+    elif 560 < total_path_length < 1360:
+        adjusted_bandwidth = bandwidth / 3
+    elif 1360 < total_path_length < 2720:
+        adjusted_bandwidth = bandwidth / 2
+    elif total_path_length > 2720:
+        adjusted_bandwidth = bandwidth
+        
+    return adjusted_bandwidth
+```
 ### 4. 重复生存期策略
 第一次未能成功完成链路放置的服务，将存放在备用列表里。若在生存期内再次尝试放置时，服务仍然存在，则可重新尝试放置。
-
+```
+def process_waiting_queue(aux_network, waiting_queue):
+    global end_times
+    current_time = min(end_times) if end_times else float('inf')
+    
+    for entry in list(waiting_queue):
+        von_number, vn_source, vn_target, data, start_wait_time = entry
+        
+        # 检查是否仍在生存期内
+        if current_time - start_wait_time < WAIT_TIME:
+            continue
+            
+        # 从等待队列中移除
+        waiting_queue.remove(entry)
+        
+        # 尝试重新映射
+        pn_source = von_mappings[von_number]['node_mappings'].get(vn_source)
+        pn_target = von_mappings[von_number]['node_mappings'].get(vn_target)
+        best_path = find_best_path(aux_network, pn_source, pn_target, data['bandwidth'])
+        
+        if best_path:
+            # 使用动态编码格式计算实际带宽需求
+            adjusted_bandwidth = map_link_with_dynamic_coding(aux_network, best_path, data['bandwidth'])
+            
+            # 分配资源
+            for i in range(len(best_path) - 1):
+                aux_network[best_path[i]][best_path[i + 1]]['capacity'] -= adjusted_bandwidth
+                
+            von_mappings[von_number]['link_mappings'][(vn_source, vn_target)] = best_path
+```
 ### 5. 碎片化感知
 增加碎片化的权重，结合Dijkstra算法，选择更优的路径，减少频谱碎片。
+```
 
+```
 ## 工作流程
 
 以下图示展示了本项目的核心工作流程：
