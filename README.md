@@ -6,10 +6,38 @@
 
 ### 1. 动态资源回收机制
 在每一次服务时，释放资源列表中已经过了生存期的服务，及时回收资源。
+```
+def recover_resources(aux_network, von_mappings):
+    global end_times
+    current_time = min(end_times) if end_times else float('inf')
+    while end_times and end_times[0] <= current_time:
+        end_time = end_times.pop(0)
+        recover_resources_at_time(aux_network, von_mappings, end_time)
+
+def recover_resources_at_time(aux_network, von_mappings, end_time):
+    for von_number, mapping in list(von_mappings.items()):
+        # 识别需要移除的节点
+        nodes_to_remove = [vn_id for vn_id, pn_id in mapping['node_mappings'].items() 
+                          if aux_network.nodes[pn_id].get('end_time') == end_time]
+        
+        # 释放节点资源
+        for vn_id in nodes_to_remove:
+            pn_id = mapping['node_mappings'][vn_id]
+            aux_network.nodes[pn_id]['computing_resource'] += mapping['node_mappings'][vn_id]['computing_resource']
+            del mapping['node_mappings'][vn_id]
+            
+            # 释放关联链路资源
+            links_to_remove = [link for link in mapping['link_mappings'] if vn_id in link]
+            for link in links_to_remove:
+                for u, v in zip(mapping['link_mappings'][link][:-1], mapping['link_mappings'][link][1:]):
+                    aux_network[u][v]['capacity'] += mapping['link_mappings'][link]['bandwidth']
+                del mapping['link_mappings'][link]
+```
 
 ### 2. 双资源池策略
 将链路资源按照一定比例分为两路资源池，以应对不同情况下的业务需求，从而降低多数服务的阻塞次数。
-
+```
+```
 ### 3. 动态编码格式
 根据不同的链路长度情况，采用不失真的编码格式，提升传输效率，减少链路开销。
 
