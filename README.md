@@ -31,7 +31,8 @@
 ### 依赖安装
 运行代码前，请确保安装以下Python库：
 ```bash
-pip install networkx numpy
+pip install networkx numpy  
+
 
 
 > 其余的文件均为学习过程中的备份或者历史代码。
