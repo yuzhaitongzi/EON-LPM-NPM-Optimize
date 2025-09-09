@@ -12,3 +12,4 @@
 ### 实验里优化过后的代码在2.RSW文件夹中，其中包含了美国与意大利两种的网络。Original—LPM&NPM是基础的不带优化的模型，用于作为比对
 ### 需要预先安装好的库
 > pip install networkx , numpy
+`pip install networkx , numpy`
